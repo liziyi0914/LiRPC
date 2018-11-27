@@ -26,7 +26,7 @@ class RPCServer():
         print(builtin)
         return str(type(name)) in builtin
 
-    def getRegList(self):
+    def genRemoteDesc(self):
         return {
             'Variables': {k: v
                           for k, v in self.regv_cfg.items()},
@@ -39,6 +39,8 @@ class RPCServer():
     def regVariable(self, name, typestr, value=None):
         self.regv[name] = value
         self.regv_cfg[name] = {'Name': name, 'Type': typestr}
+        self.regFunction('_get_%s'%(name,),self.getVariable)
+        self.regFunction('_set_%s'%(name,),self.setVariable)
 
     def getVariable(self, name):
         return self.regv[name]
@@ -93,6 +95,37 @@ class RPCClient:
     def __init__(self,server):
         self.server = server
 
+    def load(self,remoteDesc):
+        client = self
+        class Remote:
+            def __init__(self):
+                object.__setattr__(self,'remoteVariable',[])
+
+            def __getattr__(self,name):
+                if name in self.remoteVariable:
+                    pack = client.genRequestPacket('_get_%s'%(name,),{'name':name})
+                    return client.sendPacket(pack)
+                else:
+                    return None
+
+            def __setattr__(self,name,value):
+                if name in self.remoteVariable:
+                    pack = client.genRequestPacket('_set_%s'%(name,),{'name':name,'value':value})
+                    client.sendPacket(pack)
+                else:
+                    object.__setattr__(self,name,value)
+
+        self.remote = Remote()
+        print('==Desc==')
+        for k,v in remoteDesc['Functions'].items():
+            setattr(self.remote,k,self.genFunction(k))
+        for k,v in remoteDesc['Classes'].items():
+            setattr(self.remote,k,self.genClass(k,v['Functions']))
+        for k,v in remoteDesc['Variables'].items():
+            self.remote.remoteVariable.append(k)
+        print(dir(self.remote))
+        print('========')
+
     def sendPacket(self,packet):
         return self.server.executeJSON(packet)
 
@@ -141,9 +174,16 @@ class MagicClass:
 server=RPCServer()
 server.regFunction('add',plus)
 server.regClass('Magic',MagicClass,[{'Name':'who','Args':[],'Ret':'Int'}])
+server.regVariable('ip','str','192.168.0.1')
+desc=server.genRemoteDesc()
 client=RPCClient(server)
-add=client.genFunction('add')
-Magic=client.genClass('Magic',functions=[{'Name':'who'}])
-print(add(**{'x':1,'y':2}))
-m=Magic()
+client.load(desc)
+remote=client.remote
+print(remote.add(**{'x':1,'y':2}))
+m=remote.Magic()
 m.who()
+print(remote.ip)
+remote.ip='127.0.0.1'
+print(remote.ip)
+remote.mac = 'Null'
+print(remote.mac)
