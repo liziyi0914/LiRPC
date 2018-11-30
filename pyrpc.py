@@ -5,40 +5,24 @@ import random
 class RPCServer():
     def __init__(self):
         self.regf = {}
-        self.regf_cfg = {}
+        self.regf_cfg = []
         self.regc = {}
         self.regc_cfg = {}
         self.cInst = {}
         self.regv = {}
-        self.regv_cfg = {}
-
-    def _checkType(self,name):
-        builtin = [
-                str(int),
-                str(float),
-                str(str),
-                str(bool),
-                str(tuple),
-                str(list),
-                str(dict),
-                str(None)
-                ]
-        print(builtin)
-        return str(type(name)) in builtin
+        self.regv_cfg = []
 
     def genRemoteDesc(self):
         return {
-            'Variables': {k: v
-                          for k, v in self.regv_cfg.items()},
-            'Functions': {k: v
-                          for k, v in self.regf_cfg.items()},
+            'Variables': self.regv_cfg,
+            'Functions': self.regf_cfg,
             'Classes': {k: v
                         for k, v in self.regc_cfg.items()}
         }
 
-    def regVariable(self, name, typestr, value=None):
+    def regVariable(self, name, value=None):
         self.regv[name] = value
-        self.regv_cfg[name] = {'Name': name, 'Type': typestr}
+        self.regv_cfg.append(name)
         self.regFunction('_get_%s'%(name,),self.getVariable)
         self.regFunction('_set_%s'%(name,),self.setVariable)
 
@@ -48,9 +32,9 @@ class RPCServer():
     def setVariable(self, name, value):
         self.regv[name] = value
 
-    def regFunction(self, name, function, args={}, ret='None'):
+    def regFunction(self, name, function):
         self.regf[name] = function
-        self.regf_cfg[name] = {'Name': name, 'Args': args, 'Ret': ret}
+        self.regf_cfg.append(name)
 
     def callFunction(self, name, kwargs):
         return self.regf[name](**kwargs)
@@ -59,11 +43,7 @@ class RPCServer():
         self.regc[name] = cls
         self.regc_cfg[name] = {
             'Name': name,
-            'Functions': [{
-                'Name': f['Name'],
-                'Args': f['Args'],
-                'Ret': f['Ret']
-            } for f in functions]
+            'Functions': functions
         }
 
     def createClassInstance(self, name, kwargs={}):
@@ -117,12 +97,12 @@ class RPCClient:
 
         self.remote = Remote()
         print('==Desc==')
-        for k,v in remoteDesc['Functions'].items():
-            setattr(self.remote,k,self.genFunction(k))
+        for it in remoteDesc['Functions']:
+            setattr(self.remote,it,self.genFunction(it))
         for k,v in remoteDesc['Classes'].items():
             setattr(self.remote,k,self.genClass(k,v['Functions']))
-        for k,v in remoteDesc['Variables'].items():
-            self.remote.remoteVariable.append(k)
+        for it in remoteDesc['Variables']:
+            self.remote.remoteVariable.append(it)
         print(dir(self.remote))
         print('========')
 
@@ -153,10 +133,10 @@ class RPCClient:
                 self.id = cli.sendPacket(pack)['Return']
                 for func in cfunctions:
                     def f(self,**kwargs):
-                        pack = cli.genRequestPacket('%s.%s'%(self.id,func['Name']),kwargs)
+                        pack = cli.genRequestPacket('%s.%s'%(self.id,func),kwargs)
                         print(pack)
                         return cli.sendPacket(pack)
-                    setattr(c,func['Name'],f)
+                    setattr(c,func,f)
         return c
 
 
@@ -173,9 +153,10 @@ class MagicClass:
 
 server=RPCServer()
 server.regFunction('add',plus)
-server.regClass('Magic',MagicClass,[{'Name':'who','Args':[],'Ret':'Int'}])
-server.regVariable('ip','str','192.168.0.1')
+server.regClass('Magic',MagicClass,['who'])
+server.regVariable('ip','192.168.0.1')
 desc=server.genRemoteDesc()
+print(desc)
 client=RPCClient(server)
 client.load(desc)
 remote=client.remote
