@@ -150,21 +150,3 @@ class MagicClass:
         print('I LOVE HP!')
         return 233
 
-
-server=RPCServer()
-server.regFunction('add',plus)
-server.regClass('Magic',MagicClass,['who'])
-server.regVariable('ip','192.168.0.1')
-desc=server.genRemoteDesc()
-print(desc)
-client=RPCClient(server)
-client.load(desc)
-remote=client.remote
-print(remote.add(**{'x':1,'y':2}))
-m=remote.Magic()
-m.who()
-print(remote.ip)
-remote.ip='127.0.0.1'
-print(remote.ip)
-remote.mac = 'Null'
-print(remote.mac)
