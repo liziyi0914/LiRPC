@@ -57,18 +57,24 @@ class RPCServer():
     def callClassFunction(self, instName, name, kwargs={}):
         return getattr(self.cInst[instName], name)(**kwargs)
 
-    def executeJSON(self, jsonstr):
+    def executeJSON(self, jsonstr, inst):
+        self.executeJSONandDo(jsonstr,inst,lambda ret:None)
+
+    def executeJSONandDo(self, jsonstr,inst, callback):
         jsonobj = json.loads(jsonstr)
         f = jsonobj['Function']
         args = jsonobj['Args']
+        args['inst'] = inst
         ret = {"Function": f, "Return": ''}
         if '@' in f:
-            ret['Return'] = self.callClassFunction(f[:f.find('.')],
+            r = self.callClassFunction(f[:f.find('.')],
                                                    f[f.find('.') + 1:], args)
         elif '#' in f:
-            ret['Return'] = self.createClassInstance(f[f.find('#') + 1:], args)
+            r = self.createClassInstance(f[f.find('#') + 1:], args)
         else:
-            ret['Return'] = self.callFunction(f, args)
+            r = self.callFunction(f, args)
+        callback(r)
+        ret['Return'] = r
         return ret
 
 class RPCClient:
