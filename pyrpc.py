@@ -26,10 +26,10 @@ class RPCServer():
         self.regFunction('_get_%s'%(name,),self.getVariable)
         self.regFunction('_set_%s'%(name,),self.setVariable)
 
-    def getVariable(self, name):
+    def getVariable(self, name, **kwargs):
         return self.regv[name]
 
-    def setVariable(self, name, value):
+    def setVariable(self, name, value, **kwargs):
         self.regv[name] = value
 
     def regFunction(self, name, function):
@@ -57,10 +57,7 @@ class RPCServer():
     def callClassFunction(self, instName, name, kwargs={}):
         return getattr(self.cInst[instName], name)(**kwargs)
 
-    def executeJSON(self, jsonstr, inst):
-        self.executeJSONandDo(jsonstr,inst,lambda ret:None)
-
-    def executeJSONandDo(self, jsonstr,inst, callback):
+    def executeJSON(self, jsonstr,inst = None, callback = lambda ret:None):
         jsonobj = json.loads(jsonstr)
         f = jsonobj['Function']
         args = jsonobj['Args']
@@ -146,13 +143,38 @@ class RPCClient:
         return c
 
 
-def plus(x,y):
+def plus(x,y,**kwargs):
     print(('%s+%s=%s'%(x,y,x+y)))
+    print('Instance:',kwargs['inst'])
     return x+y
 class MagicClass:
     def __init__(self,**kwargs):
         print('Hello Magic!')
     def who(self,**kwargs):
         print('I LOVE HP!')
+        print('Instance:',kwargs)
         return 233
 
+server=RPCServer()
+server.regFunction('add',plus)
+server.regClass('Magic',MagicClass,['who'])
+server.regVariable('ip','192.168.0.1')
+desc=server.genRemoteDesc()
+client=RPCClient(server)
+client.load(desc)
+remote=client.remote
+print(remote.add(**{'x':1,'y':2}))
+m=remote.Magic()
+m.who()
+print(remote.ip)
+remote.ip='127.0.0.1'
+print(remote.ip)
+remote.mac = 'Null'
+print(remote.mac)
+
+class Test:
+    def do(self):
+        m.who(**{'inst':str(self)})
+
+t=Test()
+t.do()
