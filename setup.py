@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
         name= 'LiRPC',
-        version= '0.1.0',
+        version= '0.1.1',
         description=('liziyi0914\'s RPC module'),
         author= 'liziyi0914',
         author_email= 'liziyi0914@gmail.com',

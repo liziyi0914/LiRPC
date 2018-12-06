@@ -1,7 +1,6 @@
 import json
 import random
 
-
 class RPCServer():
     def __init__(self):
         self.regf = {}
@@ -72,6 +71,22 @@ class RPCServer():
         print('Instance:',callback(inst,r))
         ret['Return'] = r
         return ret
+    
+    def Function(self,name):
+        def proxy(f):
+            self.regFunction(name,f)
+            return f
+        return proxy
+
+    def Class(self,name,functions=[]):
+        def proxy(c):
+            self.regClass(name,c,functions)
+            return c
+        return proxy
+
+    def Variable(self,name,value):
+        self.regVariable(name,value)
+        return value
 
 class RPCClient:
     def __init__(self,server):
@@ -140,41 +155,3 @@ class RPCClient:
                         return cli.sendPacket(pack)
                     setattr(c,func,f)
         return c
-
-
-__DEBUG__ = False
-
-if __DEBUG__:
-    def plus(x,y,**kwargs):
-        print(('%s+%s=%s'%(x,y,x+y)))
-        return x+y
-    class MagicClass:
-        def __init__(self,**kwargs):
-            print('Hello Magic!')
-        def who(self,**kwargs):
-            print('I LOVE HP!')
-            return 233
-
-    server=RPCServer()
-    server.regFunction('add',plus)
-    server.regClass('Magic',MagicClass,['who'])
-    server.regVariable('ip','192.168.0.1')
-    desc=server.genRemoteDesc()
-    client=RPCClient(server)
-    client.load(desc)
-    remote=client.remote
-    print(remote.add(**{'x':1,'y':2}))
-    m=remote.Magic()
-    m.who()
-    print(remote.ip)
-    remote.ip='127.0.0.1'
-    print(remote.ip)
-    remote.mac = 'Null'
-    print(remote.mac)
-
-    class Test:
-        def do(self):
-            m.who()
-
-    t=Test()
-    t.do()
